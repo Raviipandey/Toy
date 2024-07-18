@@ -1,13 +1,16 @@
-#include "http_client.h"
+#include "box_login.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_tls.h"
 #include "esp_crt_bundle.h"
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "download_master_json.h"
 
 #define POST_URL "https://uat.littlecubbie.in/auth/v1/box/login"
 
-static const char *TAG = "HTTP_CLIENT";
+static const char *TAG = "BOX_LOGIN";
 static uint8_t outputBuff[2048] = {0};
 
 uint8_t tokenRequestFlag = 0;
@@ -66,6 +69,10 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+        if (validTokenFlag)
+        {
+            xTaskCreate(download_task, "download_task", 8192, (void *)accessToken, 5, NULL);
+        }
         break;
 
     case HTTP_EVENT_DISCONNECTED:
