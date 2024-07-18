@@ -4,11 +4,14 @@
 #include "esp_tls.h"
 #include "esp_crt_bundle.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define DOWNLOAD_URL "https://uat.littlecubbie.in/box/v1/download/masterJson"
 
 static const char *TAG = "MASTER_JSON_DOWNLOAD";
-static uint8_t downloadBuff[2048] = {0};
+
+static char *response_data = NULL;
+static int response_data_len = 0;
 
 static esp_err_t download_event_handler(esp_http_client_event_t *evt)
 {
@@ -35,18 +38,30 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
         break;
 
     case HTTP_EVENT_ON_DATA:
-        if (evt->data_len > sizeof(downloadBuff) - 1)
+        if (evt->data_len > 0)
         {
-            ESP_LOGE(TAG, "Received data length exceeds buffer size");
-            break;
+            char *new_response_data = (char *)realloc(response_data, response_data_len + evt->data_len + 1);
+            if (new_response_data == NULL)
+            {
+                ESP_LOGE(TAG, "Failed to allocate memory for response data");
+                return ESP_FAIL;
+            }
+            response_data = new_response_data;
+            memcpy(response_data + response_data_len, evt->data, evt->data_len);
+            response_data_len += evt->data_len;
+            response_data[response_data_len] = '\0';
         }
-        memcpy(downloadBuff, evt->data, evt->data_len);
-        downloadBuff[evt->data_len] = '\0';
-        ESP_LOGI(TAG, "Response Data: %s", downloadBuff);
         break;
 
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+        if (response_data != NULL)
+        {
+            ESP_LOGI(TAG, "Response Data: %s", response_data);
+            free(response_data);
+            response_data = NULL;
+            response_data_len = 0;
+        }
         break;
 
     case HTTP_EVENT_DISCONNECTED:
