@@ -50,9 +50,8 @@ extern "C"
             break;
 
         case HTTP_EVENT_ON_HEADER:
-            ESP_LOGI("LOG", "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
-
+            // ESP_LOGI("LOG", "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+            // ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
             if (tokenRequestFlag && (validTokenFlag == 0))
             {
                 if (memcmp(evt->header_key, "x-cubbies-box-token", 19) == 0) // First 19 bytes are the same
@@ -72,7 +71,7 @@ extern "C"
             break;
 
         case HTTP_EVENT_ON_DATA:
-            ESP_LOGW(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            // ESP_LOGW(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
             // ESP_LOGW("L", "l=%d", evt->data_len);
             memcpy(outputBuff, evt->data, evt->data_len);
             // ESP_LOGW(TAG, "%s", outputBuff);
