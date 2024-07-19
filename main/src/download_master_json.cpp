@@ -9,13 +9,44 @@
 #include "esp_crt_bundle.h"
 #include <string.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 #define DOWNLOAD_URL "https://uat.littlecubbie.in/box/v1/download/masterJson"
-#define FILE_PATH "/sdcard/media/toys/RFID_1/metadata/metadata.cubbbies"
+#define FILE_PATH "/sdcard/media/toys/RFID_1/metadata/metadata.cubbies"
 
 static const char *TAG = "MASTER_JSON_DOWNLOAD";
-static char *response_data = NULL;
-static int response_data_len = 0;
+
+static esp_err_t create_directory(const char *path)
+{
+    char temp_path[256];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(temp_path, sizeof(temp_path), "%s", path);
+    len = strlen(temp_path);
+    if (temp_path[len - 1] == '/')
+        temp_path[len - 1] = 0;
+    for (p = temp_path + 1; *p; p++)
+    {
+        if (*p == '/')
+        {
+            *p = 0;
+            if (mkdir(temp_path, S_IRWXU) != 0 && errno != EEXIST)
+            {
+                ESP_LOGE(TAG, "Failed to create directory %s: %s", temp_path, strerror(errno));
+                return ESP_FAIL;
+            }
+            *p = '/';
+        }
+    }
+    if (mkdir(temp_path, S_IRWXU) != 0 && errno != EEXIST)
+    {
+        ESP_LOGE(TAG, "Failed to create directory %s: %s", temp_path, strerror(errno));
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
 
 static esp_err_t download_event_handler(esp_http_client_event_t *evt)
 {
@@ -48,10 +79,17 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
         {
             if (file == NULL)
             {
+                // Create the directory structure if it does not exist
+                if (create_directory("/sdcard/media/toys/RFID_1/metadata/") != ESP_OK)
+                {
+                    ESP_LOGE(TAG, "Failed to create directories");
+                    return ESP_FAIL;
+                }
+
                 file = fopen(FILE_PATH, "w");
                 if (file == NULL)
                 {
-                    ESP_LOGE(TAG, "Failed to open file for writing");
+                    ESP_LOGE(TAG, "Failed to open file for writing: %s", strerror(errno));
                     return ESP_FAIL;
                 }
             }
@@ -83,7 +121,18 @@ static esp_err_t init_sd_card(void)
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
     sdmmc_card_t *card;
 
-    ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, NULL, &card);
+    // Set the width to 1-line mode
+    slot_config.width = 1;
+
+    // Options for mounting the filesystem.
+    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+        .format_if_mount_failed = true,  // Format the card if mount fails
+        .max_files = 5,
+        .allocation_unit_size = 16 * 1024
+    };
+
+    // Mount the filesystem
+    ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
     if (ret != ESP_OK)
     {
         ESP_LOGE("SD_CARD", "Failed to mount filesystem on SD card: %s", esp_err_to_name(ret));
