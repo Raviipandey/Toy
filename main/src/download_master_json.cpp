@@ -5,6 +5,7 @@
 #include "esp_crt_bundle.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdlib.h>
 
 #define DOWNLOAD_URL "https://uat.littlecubbie.in/box/v1/download/masterJson"
 
