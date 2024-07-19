@@ -4,11 +4,15 @@
 #include "esp_tls.h"
 #include "esp_crt_bundle.h"
 #include <string.h>
+#include <stdlib.h>
 
 #define DOWNLOAD_URL "https://uat.littlecubbie.in/box/v1/download/masterJson"
 
 static const char *TAG = "MASTER_JSON_DOWNLOAD";
-static uint8_t downloadBuff[2048] = {0};
+
+// Dynamic buffer to hold response data
+static char *response_buffer = NULL;
+static int response_buffer_size = 0;
 
 static esp_err_t download_event_handler(esp_http_client_event_t *evt)
 {
@@ -35,22 +39,36 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
         break;
 
     case HTTP_EVENT_ON_DATA:
-        if (evt->data_len > sizeof(downloadBuff) - 1)
+        if (evt->data_len > 0)
         {
-            ESP_LOGE(TAG, "Received data length exceeds buffer size");
-            break;
+            response_buffer = (char *)realloc(response_buffer, response_buffer_size + evt->data_len + 1);
+            if (response_buffer == NULL)
+            {
+                ESP_LOGE(TAG, "Failed to allocate memory for response buffer");
+                return ESP_FAIL;
+            }
+            memcpy(response_buffer + response_buffer_size, evt->data, evt->data_len);
+            response_buffer_size += evt->data_len;
+            response_buffer[response_buffer_size] = '\0';
         }
-        memcpy(downloadBuff, evt->data, evt->data_len);
-        downloadBuff[evt->data_len] = '\0';
-        ESP_LOGI(TAG, "Response Data: %s", downloadBuff);
         break;
 
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+        ESP_LOGI(TAG, "Response Data: %s", response_buffer);
+        free(response_buffer); // Free the buffer after use
+        response_buffer = NULL;
+        response_buffer_size = 0;
         break;
 
     case HTTP_EVENT_DISCONNECTED:
         ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
+        if (response_buffer)
+        {
+            free(response_buffer);
+            response_buffer = NULL;
+            response_buffer_size = 0;
+        }
         break;
     }
     return ESP_OK;
