@@ -10,6 +10,7 @@
 #include "driver/sdmmc_defs.h"
 #include "sdmmc_cmd.h"
 #include <sys/stat.h>
+#include "cJSON.h"
 
 #define DOWNLOAD_URL "https://uat.littlecubbie.in/box/v1/download/masterJson"
 #define FILE_PATH "/sdcard/media/toys/RFID_1/metadata/metadata.txt"
@@ -119,6 +120,35 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
             fclose(file);
             file = NULL;
             ESP_LOGI(TAG, "Response Data written to file successfully");
+
+            // Parse JSON and print directionFiles
+            cJSON *json_response = cJSON_ParseWithLength(response_buffer, response_buffer_size);
+            if (json_response == NULL)
+            {
+                ESP_LOGE(TAG, "Failed to parse JSON response");
+            }
+            else
+            {
+                cJSON *direction_files = cJSON_GetObjectItem(json_response, "directionFiles");
+                if (direction_files != NULL && cJSON_IsArray(direction_files))
+                {
+                    int file_count = cJSON_GetArraySize(direction_files);
+                    ESP_LOGI(TAG, "directionFiles:");
+                    for (int i = 0; i < file_count; i++)
+                    {
+                        cJSON *file_name = cJSON_GetArrayItem(direction_files, i);
+                        if (cJSON_IsString(file_name))
+                        {
+                            ESP_LOGI(TAG, "  %s", file_name->valuestring);
+                        }
+                    }
+                }
+                else
+                {
+                    ESP_LOGE(TAG, "Failed to get directionFiles array from JSON response");
+                }
+                cJSON_Delete(json_response);
+            }
         }
 
         free(response_buffer); // Free the buffer after use
