@@ -55,8 +55,8 @@ void wifi_init_sta(void)
 
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = "You broadband",
-            .password = "0228503933",
+            .ssid = "Aloha",
+            .password = "Aloha2022",
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));

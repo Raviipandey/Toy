@@ -12,11 +12,11 @@
 #include "wifi.h"
 #include "box_login.h"
 #include "download_master_json.h"
-#include "sdcard.h"  // Include the header for SD card functions
+#include "sdcard.h"
 
 static const char *TAG = "MAIN";
 
-// Forward declarations
+// Forward declaration for download task
 void download_task(void *pvParameters);
 
 extern "C" void app_main()
@@ -29,10 +29,9 @@ extern "C" void app_main()
     }
     ESP_ERROR_CHECK(ret);
 
-    // Initialize Wi-Fi
     wifi_init_sta();
 
-    // Wait for Wi-Fi connection
+    // Wait for Wi-Fi connection before starting the HTTP task
     vTaskDelay(10000 / portTICK_PERIOD_MS);
 
     // Initialize SD card
@@ -45,11 +44,6 @@ extern "C" void app_main()
 
     // Create a task for the initial login HTTP POST request
     xTaskCreate(&http_post_task, "http_post_task", 8192, NULL, 5, NULL);
-
-    // Create a task for downloading data
-    // Pass the access token as a parameter
-    const char *access_token = "077f03a7-979c-4183-b455-7fef44d1139a";
-    xTaskCreate(&download_task, "download_task", 8192, (void *)access_token, 5, NULL);
 
     ESP_LOGI(TAG, "Main application started");
 }

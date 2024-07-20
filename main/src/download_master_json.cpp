@@ -1,19 +1,18 @@
-#include "esp_log.h"
-#include "esp_err.h"
-#include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
-#include "driver/sdmmc_defs.h"
-#include "sdmmc_cmd.h"
+#include "download_master_json.h"
 #include "esp_http_client.h"
+#include "esp_log.h"
 #include "esp_tls.h"
 #include "esp_crt_bundle.h"
 #include <string.h>
 #include <stdlib.h>
+#include "esp_vfs_fat.h"
+#include "driver/sdmmc_host.h"
+#include "driver/sdmmc_defs.h"
+#include "sdmmc_cmd.h"
 #include <sys/stat.h>
-#include <errno.h>
 
 #define DOWNLOAD_URL "https://uat.littlecubbie.in/box/v1/download/masterJson"
-#define FILE_PATH "/sdcard/media/toys/RFID_1/metadata/metadata.cubbies"
+#define FILE_PATH "/sdcard/media/toys/RFID_1/metadata/metadata.txt"
 
 static const char *TAG = "MASTER_JSON_DOWNLOAD";
 
@@ -48,6 +47,10 @@ static esp_err_t create_directory(const char *path)
     return ESP_OK;
 }
 
+// Dynamic buffer to hold response data
+static char *response_buffer = NULL;
+static int response_buffer_size = 0;
+
 static esp_err_t download_event_handler(esp_http_client_event_t *evt)
 {
     static FILE *file = NULL;
@@ -77,6 +80,16 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
     case HTTP_EVENT_ON_DATA:
         if (evt->data_len > 0)
         {
+            response_buffer = (char *)realloc(response_buffer, response_buffer_size + evt->data_len + 1);
+            if (response_buffer == NULL)
+            {
+                ESP_LOGE(TAG, "Failed to allocate memory for response buffer");
+                return ESP_FAIL;
+            }
+            memcpy(response_buffer + response_buffer_size, evt->data, evt->data_len);
+            response_buffer_size += evt->data_len;
+            response_buffer[response_buffer_size] = '\0';
+
             if (file == NULL)
             {
                 // Create the directory structure if it does not exist
@@ -93,54 +106,38 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
                     return ESP_FAIL;
                 }
             }
-            fwrite(evt->data, 1, evt->data_len, file);
+            fwrite(response_buffer, 1, response_buffer_size, file);
         }
         break;
 
     case HTTP_EVENT_ON_FINISH:
         ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+        ESP_LOGI(TAG, "Response Data: %s", response_buffer);
+
         if (file != NULL)
         {
             fclose(file);
             file = NULL;
             ESP_LOGI(TAG, "Response Data written to file successfully");
         }
+
+        free(response_buffer); // Free the buffer after use
+        response_buffer = NULL;
+        response_buffer_size = 0;
+
         break;
 
     case HTTP_EVENT_DISCONNECTED:
         ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
+        if (response_buffer)
+        {
+            free(response_buffer);
+            response_buffer = NULL;
+            response_buffer_size = 0;
+        }
         break;
     }
-    return ESP_OK;
-}
-
-static esp_err_t init_sd_card(void)
-{
-    esp_err_t ret;
-    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    sdmmc_card_t *card;
-
-    // Set the width to 1-line mode
-    slot_config.width = 1;
-
-    // Options for mounting the filesystem.
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-        .format_if_mount_failed = true,  // Format the card if mount fails
-        .max_files = 5,
-        .allocation_unit_size = 16 * 1024
-    };
-
-    // Mount the filesystem
-    ret = esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
-    if (ret != ESP_OK)
-    {
-        ESP_LOGE("SD_CARD", "Failed to mount filesystem on SD card: %s", esp_err_to_name(ret));
-        return ret;
-    }
-
-    ESP_LOGI("SD_CARD", "SD card mounted successfully");
-    return ESP_OK;
+    return ESP_OK; // Ensure the function always returns ESP_OK
 }
 
 void download_master_json(const char *access_token)
