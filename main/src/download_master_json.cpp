@@ -17,6 +17,18 @@
 
 static const char *TAG = "MASTER_JSON_DOWNLOAD";
 
+// Dynamic buffer to hold response data
+static char *response_buffer = NULL;
+static int response_buffer_size = 0;
+
+// Store direction file names
+static char **direction_files = NULL;
+static int direction_file_count = 0;
+
+// Global variables for access token and request body
+static const char *global_access_token = NULL;
+static const char *global_request_body = "{\"rfid\":\"E0040350196D3957\",\"userIds\":[\"ec6b8990-8546-4d0d-ad57-871861415639\"],\"macAddress\":\"E0:E2:E6:72:9B:4C\"}";
+
 static esp_err_t create_directory(const char *path)
 {
     char temp_path[256];
@@ -47,10 +59,6 @@ static esp_err_t create_directory(const char *path)
     }
     return ESP_OK;
 }
-
-// Dynamic buffer to hold response data
-static char *response_buffer = NULL;
-static int response_buffer_size = 0;
 
 static esp_err_t download_event_handler(esp_http_client_event_t *evt)
 {
@@ -121,7 +129,7 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
             file = NULL;
             ESP_LOGI(TAG, "Response Data written to file successfully");
 
-            // Parse JSON and print directionFiles
+            // Parse JSON and store directionFiles
             cJSON *json_response = cJSON_ParseWithLength(response_buffer, response_buffer_size);
             if (json_response == NULL)
             {
@@ -129,17 +137,19 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
             }
             else
             {
-                cJSON *direction_files = cJSON_GetObjectItem(json_response, "directionFiles");
-                if (direction_files != NULL && cJSON_IsArray(direction_files))
+                cJSON *direction_files_json = cJSON_GetObjectItem(json_response, "directionFiles");
+                if (direction_files_json != NULL && cJSON_IsArray(direction_files_json))
                 {
-                    int file_count = cJSON_GetArraySize(direction_files);
-                    ESP_LOGI(TAG, "directionFiles:");
-                    for (int i = 0; i < file_count; i++)
+                    direction_file_count = cJSON_GetArraySize(direction_files_json);
+                    direction_files = (char **)malloc(sizeof(char *) * direction_file_count);
+
+                    for (int i = 0; i < direction_file_count; i++)
                     {
-                        cJSON *file_name = cJSON_GetArrayItem(direction_files, i);
+                        cJSON *file_name = cJSON_GetArrayItem(direction_files_json, i);
                         if (cJSON_IsString(file_name))
                         {
-                            ESP_LOGI(TAG, "  %s", file_name->valuestring);
+                            direction_files[i] = strdup(file_name->valuestring);
+                            ESP_LOGI(TAG, "Stored direction file: %s", direction_files[i]);
                         }
                     }
                 }
@@ -172,6 +182,8 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
 
 void download_master_json(const char *access_token)
 {
+    global_access_token = access_token; // Store the access token globally
+
     esp_http_client_config_t config = {
         .url = DOWNLOAD_URL,
         .event_handler = download_event_handler,
@@ -181,12 +193,10 @@ void download_master_json(const char *access_token)
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
 
-    const char *post_data = "{\"rfid\":\"E0040350196D3957\",\"userIds\":[\"ec6b8990-8546-4d0d-ad57-871861415639\"],\"macAddress\":\"E0:E2:E6:72:9B:4C\"}";
-
     esp_http_client_set_method(client, HTTP_METHOD_POST);
     esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_header(client, "x-cubbies-box-token", access_token);
-    esp_http_client_set_post_field(client, post_data, strlen(post_data));
+    esp_http_client_set_header(client, "x-cubbies-box-token", global_access_token);
+    esp_http_client_set_post_field(client, global_request_body, strlen(global_request_body));
 
     esp_err_t err = esp_http_client_perform(client);
     if (err == ESP_OK)
@@ -201,4 +211,28 @@ void download_master_json(const char *access_token)
     }
 
     esp_http_client_cleanup(client);
+}
+
+int get_direction_file_count()
+{
+    return direction_file_count;
+}
+
+const char* get_direction_file_name(int index)
+{
+    if (index >= 0 && index < direction_file_count)
+    {
+        return direction_files[index];
+    }
+    return NULL;
+}
+
+const char* get_access_token()
+{
+    return global_access_token;
+}
+
+const char* get_request_body()
+{
+    return global_request_body;
 }

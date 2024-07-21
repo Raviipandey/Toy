@@ -13,6 +13,8 @@
 #include "box_login.h"
 #include "download_master_json.h"
 #include "sdcard.h"
+#include "direction.h"
+
 
 static const char *TAG = "MAIN";
 
@@ -52,5 +54,6 @@ void download_task(void *pvParameters)
 {
     char *accessToken = (char *)pvParameters;
     download_master_json(accessToken);
+    process_direction_files();
     vTaskDelete(NULL);
 }
