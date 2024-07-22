@@ -22,8 +22,12 @@ static char *response_buffer = NULL;
 static int response_buffer_size = 0;
 
 // Store direction file names
-static char **direction_files = NULL;
+static char **direction_file_names = NULL;
 static int direction_file_count = 0;
+
+// Store N values from media array
+static char **N_server = NULL;
+static int N_count = 0;
 
 // Global variables for access token and request body
 static const char *global_access_token = NULL;
@@ -127,7 +131,7 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
         {
             fclose(file);
             file = NULL;
-            ESP_LOGI(TAG, "Response Data written to file successfully");
+            ESP_LOGI(TAG, "Response Data written to Metadata.txt file successfully");
 
             // Parse JSON and store directionFiles
             cJSON *json_response = cJSON_ParseWithLength(response_buffer, response_buffer_size);
@@ -141,15 +145,15 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
                 if (direction_files_json != NULL && cJSON_IsArray(direction_files_json))
                 {
                     direction_file_count = cJSON_GetArraySize(direction_files_json);
-                    direction_files = (char **)malloc(sizeof(char *) * direction_file_count);
+                    direction_file_names = (char **)malloc(sizeof(char *) * direction_file_count);
 
                     for (int i = 0; i < direction_file_count; i++)
                     {
                         cJSON *file_name = cJSON_GetArrayItem(direction_files_json, i);
                         if (cJSON_IsString(file_name))
                         {
-                            direction_files[i] = strdup(file_name->valuestring);
-                            ESP_LOGI(TAG, "Stored direction file: %s", direction_files[i]);
+                            direction_file_names[i] = strdup(file_name->valuestring);
+                            ESP_LOGI(TAG, "Stored direction file name %d: %s", i, direction_file_names[i]);
                         }
                     }
                 }
@@ -157,6 +161,30 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
                 {
                     ESP_LOGE(TAG, "Failed to get directionFiles array from JSON response");
                 }
+
+                // Extract N values from media array
+                cJSON *media_json = cJSON_GetObjectItem(json_response, "media");
+                if (media_json != NULL && cJSON_IsArray(media_json))
+                {
+                    N_count = cJSON_GetArraySize(media_json);
+                    N_server = (char **)malloc(sizeof(char *) * N_count);
+
+                    for (int i = 0; i < N_count; i++)
+                    {
+                        cJSON *media_item = cJSON_GetArrayItem(media_json, i);
+                        cJSON *N_value = cJSON_GetObjectItem(media_item, "N");
+                        if (cJSON_IsString(N_value))
+                        {
+                            N_server[i] = strdup(N_value->valuestring);
+                            ESP_LOGI(TAG, "Stored N value %d: %s", i, N_server[i]);
+                        }
+                    }
+                }
+                else
+                {
+                    ESP_LOGE(TAG, "Failed to get media array from JSON response");
+                }
+
                 cJSON_Delete(json_response);
             }
         }
@@ -218,21 +246,35 @@ int get_direction_file_count()
     return direction_file_count;
 }
 
-const char* get_direction_file_name(int index)
+const char *get_direction_file_name(int index)
 {
     if (index >= 0 && index < direction_file_count)
     {
-        return direction_files[index];
+        return direction_file_names[index];
     }
     return NULL;
 }
 
-const char* get_access_token()
+const char *get_access_token()
 {
     return global_access_token;
 }
 
-const char* get_request_body()
+const char *get_request_body()
 {
     return global_request_body;
+}
+
+int get_N_count()
+{
+    return N_count;
+}
+
+const char *get_N_value(int index)
+{
+    if (index >= 0 && index < N_count)
+    {
+        return N_server[index];
+    }
+    return NULL;
 }

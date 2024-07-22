@@ -18,5 +18,8 @@ const char* get_direction_file_name(int index);
 const char* get_access_token();
 const char* get_request_body();
 
+//mp3 file in server
+int get_N_count();
+const char *get_N_value(int index);
 
 #endif // DOWNLOAD_MASTER_JSON_H
