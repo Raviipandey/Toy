@@ -3,6 +3,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "wifi_config.h"
 
 static const char *TAG = "WIFI_MANAGER";
 
@@ -55,8 +56,8 @@ void wifi_init_sta(void)
 
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = "Aloha",
-            .password = "Aloha2022",
+            .ssid = WIFI_SSID,
+            .password = WIFI_PASSWORD,
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));

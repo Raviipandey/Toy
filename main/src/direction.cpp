@@ -38,7 +38,7 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
             if (output_len + evt->data_len < sizeof(output_buffer)) {
                 memcpy(output_buffer + output_len, evt->data, evt->data_len);
                 output_len += evt->data_len;
-                output_buffer[output_len] = 0;  // Null-terminate
+                output_buffer[output_len] = 0;  
             } else {
                 ESP_LOGE(TAG, "Buffer overflow");
             }
