@@ -8,6 +8,8 @@
 #include "driver/sdmmc_defs.h"
 #include "sdmmc_cmd.h"
 
+using namespace std;
+
 // From inc
 #include "wifi.h"
 #include "box_login.h"
@@ -43,14 +45,6 @@ extern "C" void app_main()
     {
         ESP_LOGE(TAG, "Failed to initialize SD card");
         return;
-    }
-    // Get the list of files in a directory on the SD card
-    std::vector<std::string> files = list_files("/sdcard/media/audio/");
-
-    // Process the file names as needed
-    for (const auto &file_name : files)
-    {
-            ESP_LOGI("FILE", "Stored File Name: %s", file_name.c_str());
     }
 
     // Create a task for the initial login HTTP POST request

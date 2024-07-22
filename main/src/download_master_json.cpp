@@ -176,7 +176,7 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
                         if (cJSON_IsString(N_value))
                         {
                             N_server[i] = strdup(N_value->valuestring);
-                            ESP_LOGI(TAG, "Stored N value %d: %s", i, N_server[i]);
+                            ESP_LOGI(TAG, "Stored N_server value %d: %s", i, N_server[i]);
                         }
                     }
                 }

@@ -66,9 +66,9 @@ void read_file(const char *path)
     fclose(f);
 }
 
-std::vector<std::string> list_files(const char *path)
+vector<string> list_files(const char *path)
 {
-    std::vector<std::string> file_names;
+    vector<string> file_names;
     DIR *dir = opendir(path);
     if (dir == NULL)
     {
