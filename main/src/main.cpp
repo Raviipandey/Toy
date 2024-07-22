@@ -14,6 +14,7 @@
 #include "download_master_json.h"
 #include "sdcard.h"
 #include "direction.h"
+#include "download_mp3.h"
 
 
 static const char *TAG = "MAIN";
@@ -63,5 +64,6 @@ void download_task(void *pvParameters)
     char *accessToken = (char *)pvParameters;
     download_master_json(accessToken);
     process_direction_files();
+    process_audio_files();
     vTaskDelete(NULL);
 }
