@@ -1,4 +1,3 @@
-#include "download_master_json.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_tls.h"
@@ -11,6 +10,10 @@
 #include "sdmmc_cmd.h"
 #include <sys/stat.h>
 #include "cJSON.h"
+
+// From inc
+//  #include "download_master_json.h"
+#include "main.h"
 
 #define DOWNLOAD_URL "https://uat.littlecubbie.in/box/v1/download/masterJson"
 #define FILE_PATH "/sdcard/media/toys/RFID_1/metadata/metadata.txt"
@@ -30,8 +33,8 @@ static char **N_server = NULL;
 static int N_count = 0;
 
 // Global variables for access token and request body
-static const char *global_access_token = NULL;
-static const char *global_request_body = "{\"rfid\":\"E0040350196D3957\",\"userIds\":[\"ec6b8990-8546-4d0d-ad57-871861415639\"],\"macAddress\":\"E0:E2:E6:72:9B:4C\"}";
+
+static const char *request_body = "{\"rfid\":\"E0040350196D3957\",\"userIds\":[\"ec6b8990-8546-4d0d-ad57-871861415639\"],\"macAddress\":\"E0:E2:E6:72:9B:4C\"}";
 
 static esp_err_t create_directory(const char *path)
 {
@@ -208,10 +211,8 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
     return ESP_OK; // Ensure the function always returns ESP_OK
 }
 
-void download_master_json(const char *access_token)
+void download_master_json()
 {
-    global_access_token = access_token; // Store the access token globally
-
     esp_http_client_config_t config = {
         .url = DOWNLOAD_URL,
         .event_handler = download_event_handler,
@@ -223,8 +224,9 @@ void download_master_json(const char *access_token)
 
     esp_http_client_set_method(client, HTTP_METHOD_POST);
     esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_header(client, "x-cubbies-box-token", global_access_token);
-    esp_http_client_set_post_field(client, global_request_body, strlen(global_request_body));
+    esp_http_client_set_header(client, "x-cubbies-box-token", accessToken);
+    esp_http_client_set_post_field(client, request_body, strlen(request_body));
+
 
     esp_err_t err = esp_http_client_perform(client);
     if (err == ESP_OK)
@@ -241,6 +243,63 @@ void download_master_json(const char *access_token)
     esp_http_client_cleanup(client);
 }
 
+void update_N_server(char **sd_files, int sd_file_count)
+{
+    char **new_N_server = NULL;
+    int new_N_count = 0;
+
+    // Allocate memory for the new N_server array
+    new_N_server = (char **)malloc(N_count * sizeof(char *));
+    if (new_N_server == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for new N_server");
+        return;
+    }
+
+    // Compare and copy unique values
+    for (int i = 0; i < N_count; i++) {
+        int found = 0;
+        for (int j = 0; j < sd_file_count; j++) {
+            if (strcmp(N_server[i], sd_files[j]) == 0) {
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            new_N_server[new_N_count] = strdup(N_server[i]);
+            if (new_N_server[new_N_count] == NULL) {
+                ESP_LOGE(TAG, "Failed to allocate memory for new N_server value");
+                // Free allocated memory before returning
+                for (int k = 0; k < new_N_count; k++) {
+                    free(new_N_server[k]);
+                }
+                free(new_N_server);
+                return;
+            }
+            new_N_count++;
+        }
+    }
+
+    // Free the old N_server array
+    free_N_server();
+
+    // Update N_server with the new values
+    N_server = new_N_server;
+    N_count = new_N_count;
+
+    ESP_LOGI(TAG, "Updated N_server array. New count: %d", N_count);
+}
+
+void free_N_server()
+{
+    if (N_server != NULL) {
+        for (int i = 0; i < N_count; i++) {
+            free(N_server[i]);
+        }
+        free(N_server);
+        N_server = NULL;
+        N_count = 0;
+    }
+}
 int get_direction_file_count()
 {
     return direction_file_count;
@@ -253,16 +312,6 @@ const char *get_direction_file_name(int index)
         return direction_file_names[index];
     }
     return NULL;
-}
-
-const char *get_access_token()
-{
-    return global_access_token;
-}
-
-const char *get_request_body()
-{
-    return global_request_body;
 }
 
 int get_N_count()

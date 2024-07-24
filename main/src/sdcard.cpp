@@ -10,10 +10,14 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include <cstring>
+#include <cstdlib>
+#include "download_master_json.h"
 
 #define SD_CARD_MOUNT_POINT "/sdcard"
 
 static const char *TAG = "SD_CARD";
+#define MAX_FILES 100
 
 esp_err_t init_sd_card()
 {
@@ -66,24 +70,39 @@ void read_file(const char *path)
     fclose(f);
 }
 
-std::vector<std::string> list_files(const char *path)
+char** list_files(const char *path, int *file_count)
 {
-    std::vector<std::string> file_names;
     DIR *dir = opendir(path);
     if (dir == NULL)
     {
         ESP_LOGE(TAG, "Failed to open directory: %s", path);
-        return file_names;
+        *file_count = 0;
+        return NULL;
+    }
+
+    char **file_names = (char **)malloc(MAX_FILES * sizeof(char *));
+    if (file_names == NULL)
+    {
+        ESP_LOGE(TAG, "Failed to allocate memory for file names");
+        closedir(dir);
+        *file_count = 0;
+        return NULL;
     }
 
     struct dirent *entry;
+    int count = 0;
     ESP_LOGI(TAG, "Listing files in directory: %s", path);
-    while ((entry = readdir(dir)) != NULL)
+    while ((entry = readdir(dir)) != NULL && count < MAX_FILES)
     {
         if (entry->d_type == DT_REG) // If the entry is a regular file
         {
-            file_names.push_back(entry->d_name);
-            // ESP_LOGI(TAG, "File: %s", entry->d_name);
+            file_names[count] = strdup(entry->d_name);
+            if (file_names[count] == NULL)
+            {
+                ESP_LOGE(TAG, "Failed to allocate memory for file name");
+                break;
+            }
+            count++;
         }
         else if (entry->d_type == DT_DIR) // If the entry is a directory
         {
@@ -92,5 +111,21 @@ std::vector<std::string> list_files(const char *path)
     }
 
     closedir(dir);
+    *file_count = count;
     return file_names;
 }
+
+// Add this function to free the memory allocated for file names
+void free_file_list(char **file_names, int file_count)
+{
+    if (file_names != NULL)
+    {
+        for (int i = 0; i < file_count; i++)
+        {
+            free(file_names[i]);
+        }
+        free(file_names);
+    }
+}
+
+
