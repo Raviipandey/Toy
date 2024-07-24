@@ -1,5 +1,3 @@
-#include "direction.h"
-#include "download_master_json.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_tls.h"
@@ -9,6 +7,11 @@
 #include "esp_vfs_fat.h"
 #include "driver/sdmmc_host.h"
 #include "sdmmc_cmd.h"
+
+// From inc
+// #include "direction.h"
+//  #include "download_master_json.h"
+#include "main.h"
 
 static const char *TAG = "PROCESS_DIRECTION_FILES";
 
@@ -106,7 +109,7 @@ static void download_file(const char *file_name)
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
 
-    esp_http_client_set_header(client, "x-cubbies-box-token", get_access_token());
+    esp_http_client_set_header(client, "x-cubbies-box-token", accessToken);
 
     esp_err_t err = esp_http_client_perform(client);
 
@@ -169,8 +172,4 @@ void process_direction_files()
             ESP_LOGE(TAG, "Failed to get direction file name for index %d", i);
         }
     }
-
-    // Print the access token and request body
-    ESP_LOGI(TAG, "Access Token: %s", get_access_token());
-    ESP_LOGI(TAG, "Request Body: %s", get_request_body());
 }

@@ -8,9 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "download_master_json.h"
 #include "esp_timer.h"
-#include <sdcard.h>
+
+//From inc
+// #include "download_master_json.h"
+// #include <sdcard.h>
+#include "main.h"
 
 static const char *TAG = "PROCESS_AUDIO_FILES";
 
@@ -21,46 +24,46 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id)
     {
-    case HTTP_EVENT_ERROR:
-        ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
-        break;
-    case HTTP_EVENT_REDIRECT:
-        ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
-        break;
-    case HTTP_EVENT_ON_CONNECTED:
-        ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
-        break;
-    case HTTP_EVENT_HEADER_SENT:
-        ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
-        break;
-    case HTTP_EVENT_ON_HEADER:
-        ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
-        break;
-    case HTTP_EVENT_ON_DATA:
-        ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
-        if (file && evt->data)
-        {
-            fwrite(evt->data, 1, evt->data_len, file);
-        }
-        break;
-    case HTTP_EVENT_ON_FINISH:
-        ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
-        if (file)
-        {
-            fclose(file);
-            file = NULL;
-            ESP_LOGI(TAG, "File download complete");
-        }
-        break;
-    case HTTP_EVENT_DISCONNECTED:
-        ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
-        if (file)
-        {
-            fclose(file);
-            file = NULL;
-            ESP_LOGE(TAG, "File download interrupted");
-        }
-        break;
+        case HTTP_EVENT_ERROR:
+            ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
+            break;
+        case HTTP_EVENT_REDIRECT:
+            ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
+            break;
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
+            break;
+        case HTTP_EVENT_HEADER_SENT:
+            ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
+            break;
+        case HTTP_EVENT_ON_HEADER:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+            break;
+        case HTTP_EVENT_ON_DATA:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            if (file && evt->data)
+            {
+                fwrite(evt->data, 1, evt->data_len, file);
+            }
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+            if (file)
+            {
+                fclose(file);
+                file = NULL;
+                ESP_LOGI(TAG, "File download complete");
+            }
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
+            if (file)
+            {
+                fclose(file);
+                file = NULL;
+                ESP_LOGE(TAG, "File download interrupted");
+            }
+            break;
     }
     return ESP_OK;
 }
@@ -95,7 +98,7 @@ static void download_file(const char *file_name)
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
 
-    esp_http_client_set_header(client, "x-cubbies-box-token", get_access_token());
+    esp_http_client_set_header(client, "x-cubbies-box-token", accessToken);
 
     // Start the timer
     int64_t start_time = esp_timer_get_time();
@@ -129,45 +132,83 @@ static void download_file(const char *file_name)
     esp_http_client_cleanup(client);
 }
 
-void process_audio_files()
+void compare_and_update_N_server(const char *path)
 {
-    int file_count = get_N_count();
-    ESP_LOGI(TAG, "Processing %d audio files", file_count);
+    int file_count;
+    char **file_names = list_files(path, &file_count);
 
-    // Get the list of files in a directory on the SD card
-    vector<string> N_sdcard = list_files("/sdcard/media/audio/");
-
-    // Process the file names to remove the ".cubaud" extension
-    for (auto &file_name : N_sdcard)
+    if (file_names != NULL)
     {
-        size_t last_dot = file_name.rfind('.');
-        if (last_dot != string::npos)
-        {
-            file_name = file_name.substr(0, last_dot);
-        }
-        ESP_LOGI("FILE", "Stored N_sdcard value: %s", file_name.c_str());
+        update_N_server(file_names, file_count);
+        free_file_list(file_names, file_count);
+    }
+}
+
+void process_audio_files(const char *sd_card_path)
+{
+    // Get the list of files on the SD card
+    int sd_file_count;
+    char **sd_files = list_files(sd_card_path, &sd_file_count);
+
+    if (sd_files == NULL)
+    {
+        ESP_LOGE(TAG, "Failed to get list of files from SD card");
+        return;
     }
 
-    for (int i = 0; i < file_count; i++)
-    {
-        const char *file_name = get_N_value(i);
-        if (file_name != NULL)
-        {
-            ESP_LOGI(TAG, "Audio file: %s", file_name);
+    int n_server_count = get_N_count();
+    ESP_LOGI(TAG, "Total files in N_server: %d", n_server_count);
 
-            // Send GET request to download the file and save the response data
-            download_file(file_name);
-        }
-        else
+    // Log duplicate files and create a list of files to download
+    ESP_LOGI(TAG, "Duplicate files (already on SD card):");
+    std::vector<std::string> files_to_download;
+
+    for (int i = 0; i < n_server_count; i++)
+    {
+        const char *n_server_file = get_N_value(i);
+        bool is_duplicate = false;
+
+        for (int j = 0; j < sd_file_count; j++)
         {
-            ESP_LOGE(TAG, "Failed to get audio file name for index %d", i);
+            // Compare filenames without extension
+            std::string n_server_name(n_server_file);
+            std::string sd_name(sd_files[j]);
+            
+            auto n_server_ext = n_server_name.find_last_of('.');
+            auto sd_ext = sd_name.find_last_of('.');
+            
+            if (n_server_ext != std::string::npos) n_server_name = n_server_name.substr(0, n_server_ext);
+            if (sd_ext != std::string::npos) sd_name = sd_name.substr(0, sd_ext);
+
+            if (n_server_name == sd_name)
+            {
+                is_duplicate = true;
+                ESP_LOGI(TAG, "  %s", n_server_file);
+                break;
+            }
         }
+
+        if (!is_duplicate)
+        {
+            files_to_download.push_back(n_server_file);
+        }
+    }
+
+    ESP_LOGI(TAG, "Processing %d unique audio files", files_to_download.size());
+
+    // Process unique files (not on SD card)
+    for (const auto& file_name : files_to_download)
+    {
+        ESP_LOGI(TAG, "Downloading audio file: %s", file_name.c_str());
+
+        // Send GET request to download the file and save the response data
+        download_file(file_name.c_str());
     }
 
     // Print the total download time
     ESP_LOGI(TAG, "Total download time: %lld ms", total_download_time / 1000);
 
-    // Print the access token and request body
-    ESP_LOGI(TAG, "Access Token: %s", get_access_token());
-    ESP_LOGI(TAG, "Request Body: %s", get_request_body());
+    // Free the memory allocated for sd_files
+    free_file_list(sd_files, sd_file_count);
+    free_N_server();
 }
