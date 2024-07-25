@@ -3,22 +3,25 @@
 
 #include "esp_err.h"
 
+// Declare the variables as extern to make them accessible across the project
+// extern char **direction_file_names;
+extern int direction_file_count;
 
+extern char **N_server;
+extern int N_count;
+
+extern char baseUrl[256];
+    
 // Function to initiate the HTTP POST request for master JSON download
 void download_master_json();
 void download_task(void *pvParameters);
 
-// Function to get the number of direction files
-int get_direction_file_count();
-
 // Function to get the direction file name by index
-const char* get_direction_file_name(int index);
+const char *get_direction_file_name(int index);////CHECK
 
+// mp3 file in server
+const char *get_N_value(int index);////CHECK
 
-
-//mp3 file in server
-int get_N_count();
-const char *get_N_value(int index);
 void update_N_server(char **sd_files, int sd_file_count);
 void free_N_server();
 
