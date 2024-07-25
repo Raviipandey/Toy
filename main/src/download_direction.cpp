@@ -15,62 +15,67 @@
 
 static const char *TAG = "PROCESS_DIRECTION_FILES";
 
-static char output_buffer[4096];  // Increased buffer size
+static char output_buffer[4096]; // Increased buffer size
 static int output_len = 0;
 
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
-    switch(evt->event_id) {
-        case HTTP_EVENT_ERROR:
-            ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
-            break;
-        case HTTP_EVENT_REDIRECT:
-            ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
-            break;
-        case HTTP_EVENT_ON_CONNECTED:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
-            break;
-        case HTTP_EVENT_HEADER_SENT:
-            ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
-            break;
-        case HTTP_EVENT_ON_HEADER:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
-            break;
-        case HTTP_EVENT_ON_DATA:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
-            if (output_len + evt->data_len < sizeof(output_buffer)) {
-                memcpy(output_buffer + output_len, evt->data, evt->data_len);
-                output_len += evt->data_len;
-                output_buffer[output_len] = 0;  
-            } else {
-                ESP_LOGE(TAG, "Buffer overflow");
-            }
-            break;
-        case HTTP_EVENT_ON_FINISH:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
-            if (output_len > 0) {
-                ESP_LOGI(TAG, "Response Data: %s", output_buffer);
-            }
-            output_len = 0;  // Reset buffer
-            break;
-        case HTTP_EVENT_DISCONNECTED:
-            ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
-            output_len = 0;  // Reset buffer
-            break;
+    switch (evt->event_id)
+    {
+    case HTTP_EVENT_ERROR:
+        ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
+        break;
+    case HTTP_EVENT_REDIRECT:
+        ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
+        break;
+    case HTTP_EVENT_ON_CONNECTED:
+        ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
+        break;
+    case HTTP_EVENT_HEADER_SENT:
+        ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
+        break;
+    case HTTP_EVENT_ON_HEADER:
+        ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+        break;
+    case HTTP_EVENT_ON_DATA:
+        ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+        if (output_len + evt->data_len < sizeof(output_buffer))
+        {
+            memcpy(output_buffer + output_len, evt->data, evt->data_len);
+            output_len += evt->data_len;
+            output_buffer[output_len] = 0;
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Buffer overflow");
+        }
+        break;
+    case HTTP_EVENT_ON_FINISH:
+        ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+        if (output_len > 0)
+        {
+            ESP_LOGI(TAG, "Response Data: %s", output_buffer);
+        }
+        output_len = 0; // Reset buffer
+        break;
+    case HTTP_EVENT_DISCONNECTED:
+        ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
+        output_len = 0; // Reset buffer
+        break;
     }
     return ESP_OK;
 }
 
-static void save_file_to_sd(const char *file_name, const char *data)
+static void save_file_to_sd(const char *direction_name, const char *data)
 {
-    if (file_name == NULL || data == NULL)
+    if (direction_name == NULL || data == NULL)
     {
         ESP_LOGE(TAG, "File name or data is NULL");
         return;
     }
 
     char file_path[256];
-    snprintf(file_path, sizeof(file_path), "/sdcard/media/toys/RFID_1/metadata/%s.txt", file_name);
+    snprintf(file_path, sizeof(file_path), "/sdcard/media/toys/RFID_1/metadata/%s.txt", direction_name);
 
     FILE *file = fopen(file_path, "w");
     if (file == NULL)
@@ -85,11 +90,11 @@ static void save_file_to_sd(const char *file_name, const char *data)
     ESP_LOGI(TAG, "File saved: %s", file_path);
 }
 
-static void download_file(const char *file_name)
+static void download_file(const char *dir_file_name)
 {
-    if (file_name == NULL)
+    if (dir_file_name == NULL)
     {
-        ESP_LOGE(TAG, "File name is NULL");
+        ESP_LOGE(TAG, "Direction file name is NULL");
         return;
     }
 
@@ -97,11 +102,15 @@ static void download_file(const char *file_name)
     memset(output_buffer, 0, sizeof(output_buffer));
     output_len = 0;
 
-    char url[256];
-    snprintf(url, sizeof(url), "https://uat.littlecubbie.in/box/v1/download/file-download?fileName=%s", file_name);
+    char direction_url[256];
+    // direction_url - https://uat.littlecubbie.in/box/v1/download/file-download?fileName=Starter_kit_Box_with_Little_Cubbie_Intro_toy_south.json
+
+    snprintf(direction_url, sizeof(direction_url), "%s%s", baseUrl, dir_file_name);
+    // baseURL - https://uat.littlecubbie.in/box/v1/download/file-download?fileName=
+    // dir_file_name - Starter_kit_Box_with_Little_Cubbie_Intro_toy_south.json
 
     esp_http_client_config_t config = {
-        .url = url,
+        .url = direction_url,
         .event_handler = http_event_handler,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .crt_bundle_attach = esp_crt_bundle_attach,
@@ -116,13 +125,13 @@ static void download_file(const char *file_name)
     if (err == ESP_OK)
     {
         ESP_LOGI(TAG, "GET request to %s succeeded. Status = %d, content_length = %" PRId64,
-                 url,
+                 direction_url,
                  esp_http_client_get_status_code(client),
                  esp_http_client_get_content_length(client));
 
         // Extract the direction from the file name
         char direction[256];
-        snprintf(direction, sizeof(direction), "%s", file_name);
+        snprintf(direction, sizeof(direction), "%s", dir_file_name);
 
         // Find the last occurrence of '_' and extract the part after it
         char *last_underscore = strrchr(direction, '_');
@@ -133,7 +142,7 @@ static void download_file(const char *file_name)
             char *extension_dot = strchr(direction_part, '.');
             if (extension_dot != NULL)
             {
-                *extension_dot = '\0';  // Remove the file extension
+                *extension_dot = '\0'; // Remove the file extension
             }
 
             // Save the response data to the SD card with direction as the file name
@@ -141,7 +150,7 @@ static void download_file(const char *file_name)
         }
         else
         {
-            ESP_LOGE(TAG, "Failed to parse direction from file name: %s", file_name);
+            ESP_LOGE(TAG, "Failed to parse direction from file name: %s", dir_file_name);
         }
     }
     else
@@ -154,18 +163,18 @@ static void download_file(const char *file_name)
 
 void process_direction_files()
 {
-    int file_count = get_direction_file_count();
+    int file_count = direction_file_count;
     ESP_LOGI(TAG, "Processing %d direction files", file_count);
 
     for (int i = 0; i < file_count; i++)
     {
-        const char* file_name = get_direction_file_name(i);
-        if (file_name != NULL)
+        const char *dir_file_name = get_direction_file_name(i);
+        if (dir_file_name != NULL)
         {
-            ESP_LOGI(TAG, "Direction file: %s", file_name);
+            ESP_LOGI(TAG, "Direction file: %s", dir_file_name);
 
             // Send GET request to download the file and save the response data
-            download_file(file_name);
+            download_file(dir_file_name);
         }
         else
         {

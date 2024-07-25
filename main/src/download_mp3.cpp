@@ -68,19 +68,19 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-static void download_file(const char *file_name)
+static void download_file(const char *mp3_file_name)
 {
-    if (file_name == NULL)
+    if (mp3_file_name == NULL)
     {
-        ESP_LOGE(TAG, "File name is NULL");
+        ESP_LOGE(TAG, "MP3 file name is NULL");
         return;
     }
 
-    char url[256];
-    snprintf(url, sizeof(url), "https://uat.littlecubbie.in/box/v1/download/file-download?fileName=%s.mp3", file_name);
+    char mp3_url[260];
+    snprintf(mp3_url, sizeof(mp3_url), "%s%s.mp3",baseUrl, mp3_file_name);
 
     char file_path[256];
-    snprintf(file_path, sizeof(file_path), "/sdcard/media/audio/%s.mp3", file_name);
+    snprintf(file_path, sizeof(file_path), "/sdcard/media/audio/%s.mp3", mp3_file_name);
 
     file = fopen(file_path, "w");
     if (file == NULL)
@@ -90,7 +90,7 @@ static void download_file(const char *file_name)
     }
 
     esp_http_client_config_t config = {
-        .url = url,
+        .url = mp3_url,
         .event_handler = http_event_handler,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .crt_bundle_attach = esp_crt_bundle_attach,
@@ -114,10 +114,10 @@ static void download_file(const char *file_name)
     if (err == ESP_OK)
     {
         ESP_LOGI(TAG, "GET request to %s succeeded. Status = %d, content_length = %" PRId64,
-                 url,
+                 mp3_url,
                  esp_http_client_get_status_code(client),
                  esp_http_client_get_content_length(client));
-        ESP_LOGI(TAG, "Download time for %s: %lld ms", file_name, elapsed_time / 1000);
+        ESP_LOGI(TAG, "Download time for %s: %lld ms", mp3_file_name, elapsed_time / 1000);
     }
     else
     {
@@ -156,12 +156,12 @@ void process_audio_files(const char *sd_card_path)
         return;
     }
 
-    int n_server_count = get_N_count();
+    int n_server_count = N_count;
     ESP_LOGI(TAG, "Total files in N_server: %d", n_server_count);
 
     // Log duplicate files and create a list of files to download
     ESP_LOGI(TAG, "Duplicate files (already on SD card):");
-    std::vector<std::string> files_to_download;
+    vector<string> files_to_download;
 
     for (int i = 0; i < n_server_count; i++)
     {
@@ -171,14 +171,14 @@ void process_audio_files(const char *sd_card_path)
         for (int j = 0; j < sd_file_count; j++)
         {
             // Compare filenames without extension
-            std::string n_server_name(n_server_file);
-            std::string sd_name(sd_files[j]);
+            string n_server_name(n_server_file);
+            string sd_name(sd_files[j]);
             
             auto n_server_ext = n_server_name.find_last_of('.');
             auto sd_ext = sd_name.find_last_of('.');
             
-            if (n_server_ext != std::string::npos) n_server_name = n_server_name.substr(0, n_server_ext);
-            if (sd_ext != std::string::npos) sd_name = sd_name.substr(0, sd_ext);
+            if (n_server_ext != string::npos) n_server_name = n_server_name.substr(0, n_server_ext);
+            if (sd_ext != string::npos) sd_name = sd_name.substr(0, sd_ext);
 
             if (n_server_name == sd_name)
             {

@@ -26,15 +26,15 @@ static int response_buffer_size = 0;
 
 // Store direction file names
 static char **direction_file_names = NULL;
-static int direction_file_count = 0;
+int direction_file_count = 0;
 
 // Store N values from media array
-static char **N_server = NULL;
-static int N_count = 0;
+char **N_server = NULL;
+int N_count = 0;
 
 // Global variables for access token and request body
-
 static const char *request_body = "{\"rfid\":\"E0040350196D3957\",\"userIds\":[\"ec6b8990-8546-4d0d-ad57-871861415639\"],\"macAddress\":\"E0:E2:E6:72:9B:4C\"}";
+char baseUrl[256] = {0};  // Initialize the baseUrl variable
 
 static esp_err_t create_directory(const char *path)
 {
@@ -144,6 +144,18 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
             }
             else
             {
+                cJSON *base_url_json = cJSON_GetObjectItem(json_response, "baseUrl");
+                if (base_url_json != NULL && cJSON_IsString(base_url_json))
+                {
+                    strncpy(baseUrl, base_url_json->valuestring, sizeof(baseUrl) - 1);
+                    baseUrl[sizeof(baseUrl) - 1] = '\0';
+                    ESP_LOGI(TAG, "Stored base URL: %s", baseUrl);
+                }
+                else
+                {
+                    ESP_LOGE(TAG, "Failed to get baseUrl from JSON response");
+                }
+
                 cJSON *direction_files_json = cJSON_GetObjectItem(json_response, "directionFiles");
                 if (direction_files_json != NULL && cJSON_IsArray(direction_files_json))
                 {
@@ -227,7 +239,6 @@ void download_master_json()
     esp_http_client_set_header(client, "x-cubbies-box-token", accessToken);
     esp_http_client_set_post_field(client, request_body, strlen(request_body));
 
-
     esp_err_t err = esp_http_client_perform(client);
     if (err == ESP_OK)
     {
@@ -250,26 +261,33 @@ void update_N_server(char **sd_files, int sd_file_count)
 
     // Allocate memory for the new N_server array
     new_N_server = (char **)malloc(N_count * sizeof(char *));
-    if (new_N_server == NULL) {
+    if (new_N_server == NULL)
+    {
         ESP_LOGE(TAG, "Failed to allocate memory for new N_server");
         return;
     }
 
     // Compare and copy unique values
-    for (int i = 0; i < N_count; i++) {
+    for (int i = 0; i < N_count; i++)
+    {
         int found = 0;
-        for (int j = 0; j < sd_file_count; j++) {
-            if (strcmp(N_server[i], sd_files[j]) == 0) {
+        for (int j = 0; j < sd_file_count; j++)
+        {
+            if (strcmp(N_server[i], sd_files[j]) == 0)
+            {
                 found = 1;
                 break;
             }
         }
-        if (!found) {
+        if (!found)
+        {
             new_N_server[new_N_count] = strdup(N_server[i]);
-            if (new_N_server[new_N_count] == NULL) {
+            if (new_N_server[new_N_count] == NULL)
+            {
                 ESP_LOGE(TAG, "Failed to allocate memory for new N_server value");
                 // Free allocated memory before returning
-                for (int k = 0; k < new_N_count; k++) {
+                for (int k = 0; k < new_N_count; k++)
+                {
                     free(new_N_server[k]);
                 }
                 free(new_N_server);
@@ -291,18 +309,16 @@ void update_N_server(char **sd_files, int sd_file_count)
 
 void free_N_server()
 {
-    if (N_server != NULL) {
-        for (int i = 0; i < N_count; i++) {
+    if (N_server != NULL)
+    {
+        for (int i = 0; i < N_count; i++)
+        {
             free(N_server[i]);
         }
         free(N_server);
         N_server = NULL;
         N_count = 0;
     }
-}
-int get_direction_file_count()
-{
-    return direction_file_count;
 }
 
 const char *get_direction_file_name(int index)
@@ -312,11 +328,6 @@ const char *get_direction_file_name(int index)
         return direction_file_names[index];
     }
     return NULL;
-}
-
-int get_N_count()
-{
-    return N_count;
 }
 
 const char *get_N_value(int index)
