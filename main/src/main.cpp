@@ -39,6 +39,7 @@ extern "C" void app_main()
         ESP_LOGE(TAG, "Failed to initialize SD card");
         return;
     }
+    
     // Get the list of files in a directory on the SD card
     
 
