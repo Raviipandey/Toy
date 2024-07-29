@@ -66,7 +66,6 @@ static esp_err_t create_directory(const char *path)
     }
     return ESP_OK;
 }
-
 static esp_err_t download_event_handler(esp_http_client_event_t *evt)
 {
     static FILE *file = NULL;
@@ -122,7 +121,7 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
                     return ESP_FAIL;
                 }
             }
-            fwrite(response_buffer, 1, response_buffer_size, file);
+            fwrite(evt->data, 1, evt->data_len, file);
         }
         break;
 
