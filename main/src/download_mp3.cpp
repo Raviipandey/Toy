@@ -200,14 +200,13 @@ void process_audio_files(const char *sd_card_path)
         return;
     }
 
-    int n_server_count = N_count;
-    ESP_LOGI(TAG, "Total files in N_server: %d", n_server_count);
+    ESP_LOGI(TAG, "Total files in N_server: %d", N_count);
 
     // Log duplicate files and create a list of files to download
     ESP_LOGI(TAG, "Duplicate files (already on SD card):");
-    vector<string> files_to_download;
+    std::vector<std::string> files_to_download;
 
-    for (int i = 0; i < n_server_count; i++)
+    for (int i = 0; i < N_count; i++)
     {
         const char *n_server_file = get_N_value(i);
         bool is_duplicate = false;
@@ -215,14 +214,14 @@ void process_audio_files(const char *sd_card_path)
         for (int j = 0; j < sd_file_count; j++)
         {
             // Compare filenames without extension
-            string n_server_name(n_server_file);
-            string sd_name(sd_files[j]);
+            std::string n_server_name(n_server_file);
+            std::string sd_name(sd_files[j]);
             
             auto n_server_ext = n_server_name.find_last_of('.');
             auto sd_ext = sd_name.find_last_of('.');
             
-            if (n_server_ext != string::npos) n_server_name = n_server_name.substr(0, n_server_ext);
-            if (sd_ext != string::npos) sd_name = sd_name.substr(0, sd_ext);
+            if (n_server_ext != std::string::npos) n_server_name = n_server_name.substr(0, n_server_ext);
+            if (sd_ext != std::string::npos) sd_name = sd_name.substr(0, sd_ext);
 
             if (n_server_name == sd_name)
             {

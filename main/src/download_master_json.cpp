@@ -182,12 +182,12 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
                 cJSON *media_json = cJSON_GetObjectItem(json_response, "media");
                 if (media_json != NULL && cJSON_IsArray(media_json))
                 {
-                    N_count = cJSON_GetArraySize(media_json);
-                    N_server = (char **)malloc(sizeof(char *) * N_count * 3); // Allocate space for N, N+C, and N+W
+                    int media_count = cJSON_GetArraySize(media_json);
+                    N_server = (char **)malloc(sizeof(char *) * media_count * 3); // Allocate space for N, N+C, and N+W
 
                     int server_index = 0; // To track the index in N_server array
 
-                    for (int i = 0; i < N_count; i++)
+                    for (int i = 0; i < media_count; i++)
                     {
                         cJSON *media_item = cJSON_GetArrayItem(media_json, i);
                         cJSON *N_value = cJSON_GetObjectItem(media_item, "N");
@@ -216,6 +216,8 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
                             }
                         }
                     }
+                    N_count = server_index; // Update N_count to reflect the actual number of items stored
+                    ESP_LOGI(TAG, "Total N_server entries: %d", N_count);
                 }
                 else
                 {
@@ -225,7 +227,7 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
             }
         }
 
-        free(response_buffer); // Free the buffer after use
+        free(response_buffer);
         response_buffer = NULL;
         response_buffer_size = 0;
 
