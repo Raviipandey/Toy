@@ -133,7 +133,7 @@ case HTTP_EVENT_ON_FINISH:
     {
         fclose(file);
         file = NULL;
-        ESP_LOGI(TAG, "Response Data written to metadata.cubbies file successfully");
+        ESP_LOGI(TAG, "Response Data written to metadata.txt file successfully");
 
         // Call the function to parse JSON response and store metadata
         parse_and_store_metadata(response_buffer, response_buffer_size);

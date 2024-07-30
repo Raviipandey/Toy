@@ -1,7 +1,7 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
   "idf.flashType": "UART",
-  "idf.portWin": "COM6",
+  "idf.portWin": "COM13",
   "idf.adapterTargetName": "esp32",
   "files.associations": {
     "array": "cpp",

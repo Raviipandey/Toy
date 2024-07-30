@@ -7,6 +7,8 @@
 #include "cJSON.h"
 
 static const char *TAG = "metadata";
+cJSON *media_json = NULL; // Define the media_json variable
+
 
 static esp_err_t create_file(const char *path, const char *content) {
     FILE *file = fopen(path, "w");
@@ -71,7 +73,15 @@ void parse_and_store_metadata(const char *response_buffer, size_t response_buffe
     }
 
     // Extract N values from media array
-    cJSON *media_json = cJSON_GetObjectItem(json_response, "media");
+
+    // Store media_json
+    cJSON *media_json_temp = cJSON_GetObjectItem(json_response, "media");
+    if (media_json_temp != NULL && cJSON_IsArray(media_json_temp)) {
+        media_json = cJSON_Duplicate(media_json_temp, 1); // Duplicate media_json to preserve data
+        ESP_LOGI(TAG, "Stored media JSON successfully");
+    } else {
+        ESP_LOGE(TAG, "Failed to get media array from JSON response");
+    }
     if (media_json != NULL && cJSON_IsArray(media_json)) {
         int media_count = cJSON_GetArraySize(media_json);
         N_server = (char **)malloc(sizeof(char *) * media_count * 3); // Allocate space for N, N+C, and N+W
