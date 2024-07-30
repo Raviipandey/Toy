@@ -5,6 +5,7 @@ idf_component_register(SRCS "./src/main.cpp"
                             "./src/sdcard.cpp"
                             "./src/download_direction.cpp"
                             "./src/download_mp3.cpp"
+                            "./src/metadata.cpp"
                     INCLUDE_DIRS "./inc")
 
 set(PARTITION_CSV_FILE ${CMAKE_CURRENT_LIST_DIR}/partitions.csv)

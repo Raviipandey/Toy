@@ -4,7 +4,7 @@
 #include "esp_err.h"
 
 // Declare the variables as extern to make them accessible across the project
-// extern char **direction_file_names;
+extern char **direction_file_names;
 extern int direction_file_count;
 
 extern char **N_server;

@@ -25,7 +25,7 @@ static char *response_buffer = NULL;
 static int response_buffer_size = 0;
 
 // Store direction file names
-static char **direction_file_names = NULL;
+char **direction_file_names = NULL;
 int direction_file_count = 0;
 
 // Store N values from media array
@@ -125,112 +125,25 @@ static esp_err_t download_event_handler(esp_http_client_event_t *evt)
         }
         break;
 
-    case HTTP_EVENT_ON_FINISH:
-        ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
-        ESP_LOGI(TAG, "Response Data: %s", response_buffer);
+case HTTP_EVENT_ON_FINISH:
+    ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+    ESP_LOGI(TAG, "Response Data: %s", response_buffer);
 
-        if (file != NULL)
-        {
-            fclose(file);
-            file = NULL;
-            ESP_LOGI(TAG, "Response Data written to metadata.txt file successfully");
+    if (file != NULL)
+    {
+        fclose(file);
+        file = NULL;
+        ESP_LOGI(TAG, "Response Data written to metadata.txt file successfully");
 
-            cJSON *json_response = cJSON_ParseWithLength(response_buffer, response_buffer_size);
-            if (json_response == NULL)
-            {
-                ESP_LOGE(TAG, "Failed to parse JSON response");
-            }
-            else
-            {
-                // Parse JSON and store baseURL
-                cJSON *base_url_json = cJSON_GetObjectItem(json_response, "baseUrl");
-                if (base_url_json != NULL && cJSON_IsString(base_url_json))
-                {
-                    strncpy(baseUrl, base_url_json->valuestring, sizeof(baseUrl) - 1);
-                    baseUrl[sizeof(baseUrl) - 1] = '\0';
-                    ESP_LOGI(TAG, "Stored base URL: %s", baseUrl);
-                }
-                else
-                {
-                    ESP_LOGE(TAG, "Failed to get baseUrl from JSON response");
-                }
+        // Call the function to parse JSON response and store metadata
+        parse_and_store_metadata(response_buffer, response_buffer_size);
+    }
 
-                // Parse JSON and store directionFiles
-                cJSON *direction_files_json = cJSON_GetObjectItem(json_response, "directionFiles");
-                if (direction_files_json != NULL && cJSON_IsArray(direction_files_json))
-                {
-                    direction_file_count = cJSON_GetArraySize(direction_files_json);
-                    direction_file_names = (char **)malloc(sizeof(char *) * direction_file_count);
+    free(response_buffer);
+    response_buffer = NULL;
+    response_buffer_size = 0;
 
-                    for (int i = 0; i < direction_file_count; i++)
-                    {
-                        cJSON *file_name = cJSON_GetArrayItem(direction_files_json, i);
-                        if (cJSON_IsString(file_name))
-                        {
-                            direction_file_names[i] = strdup(file_name->valuestring);
-                            ESP_LOGI(TAG, "Stored direction file name %d: %s", i, direction_file_names[i]);
-                        }
-                    }
-                }
-                else
-                {
-                    ESP_LOGE(TAG, "Failed to get directionFiles array from JSON response");
-                }
-
-                // Extract N values from media array
-                cJSON *media_json = cJSON_GetObjectItem(json_response, "media");
-                if (media_json != NULL && cJSON_IsArray(media_json))
-                {
-                    int media_count = cJSON_GetArraySize(media_json);
-                    N_server = (char **)malloc(sizeof(char *) * media_count * 3); // Allocate space for N, N+C, and N+W
-
-                    int server_index = 0; // To track the index in N_server array
-
-                    for (int i = 0; i < media_count; i++)
-                    {
-                        cJSON *media_item = cJSON_GetArrayItem(media_json, i);
-                        cJSON *N_value = cJSON_GetObjectItem(media_item, "N");
-                        cJSON *T_value = cJSON_GetObjectItem(media_item, "T");
-
-                        if (cJSON_IsString(N_value) && cJSON_IsNumber(T_value))
-                        {
-                            N_server[server_index] = strdup(N_value->valuestring);
-                            ESP_LOGI(TAG, "Stored N value %d: %s", server_index, N_server[server_index]);
-                            server_index++;
-
-                            if (T_value->valueint == 1)
-                            {
-                                // Allocate and store N+C
-                                size_t len = strlen(N_value->valuestring);
-                                N_server[server_index] = (char *)malloc(len + 2); // +1 for 'C' and +1 for '\0'
-                                snprintf(N_server[server_index], len + 2, "%sC", N_value->valuestring);
-                                ESP_LOGI(TAG, "Stored N+C value %d: %s", server_index, N_server[server_index]);
-                                server_index++;
-
-                                // Allocate and store N+W
-                                N_server[server_index] = (char *)malloc(len + 2); // +1 for 'W' and +1 for '\0'
-                                snprintf(N_server[server_index], len + 2, "%sW", N_value->valuestring);
-                                ESP_LOGI(TAG, "Stored N+W value %d: %s", server_index, N_server[server_index]);
-                                server_index++;
-                            }
-                        }
-                    }
-                    N_count = server_index; // Update N_count to reflect the actual number of items stored
-                    ESP_LOGI(TAG, "Total N_server entries: %d", N_count);
-                }
-                else
-                {
-                    ESP_LOGE(TAG, "Failed to get media array from JSON response");
-                }
-                cJSON_Delete(json_response);
-            }
-        }
-
-        free(response_buffer);
-        response_buffer = NULL;
-        response_buffer_size = 0;
-
-        break;
+    break;
 
     case HTTP_EVENT_DISCONNECTED:
         ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");

@@ -5,5 +5,6 @@
 #include "sdcard.h"
 #include "wifi_config.h"
 #include "wifi.h"
+#include "metadata.h"
 
 using namespace std;
