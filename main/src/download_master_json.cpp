@@ -16,7 +16,7 @@
 #include "main.h"
 
 #define DOWNLOAD_URL "https://uat.littlecubbie.in/box/v1/download/masterJson"
-#define FILE_PATH "/sdcard/media/toys/RFID_1/metadata/metadata.txt"
+#define FILE_PATH "/sdcard/media/toys/RFID_1/metadata/metadata.cubbies"
 
 static const char *TAG = "MASTER_JSON_DOWNLOAD";
 
@@ -133,7 +133,7 @@ case HTTP_EVENT_ON_FINISH:
     {
         fclose(file);
         file = NULL;
-        ESP_LOGI(TAG, "Response Data written to metadata.txt file successfully");
+        ESP_LOGI(TAG, "Response Data written to metadata.cubbies file successfully");
 
         // Call the function to parse JSON response and store metadata
         parse_and_store_metadata(response_buffer, response_buffer_size);

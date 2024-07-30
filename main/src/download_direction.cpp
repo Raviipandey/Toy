@@ -75,7 +75,7 @@ static void save_file_to_sd(const char *direction_name, const char *data)
     }
 
     char file_path[256];
-    snprintf(file_path, sizeof(file_path), "/sdcard/media/toys/RFID_1/metadata/%s.txt", direction_name);
+    snprintf(file_path, sizeof(file_path), "/sdcard/media/toys/RFID_1/metadata/%s.cubbies", direction_name);
 
     FILE *file = fopen(file_path, "w");
     if (file == NULL)
