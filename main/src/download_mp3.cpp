@@ -32,19 +32,6 @@ static void flush_buffer() {
     }
 }
 
-void print_media_json() {
-    if (media_json != NULL) {
-        char *json_string = cJSON_Print(media_json);
-        if (json_string != NULL) {
-            ESP_LOGI("another_file", "Media JSON: %s", json_string);
-            free(json_string);
-        } else {
-            ESP_LOGE("another_file", "Failed to print media JSON");
-        }
-    } else {
-        ESP_LOGE("another_file", "media_json is NULL");
-    }
-}
 
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
@@ -91,7 +78,6 @@ static esp_err_t http_event_handler(esp_http_client_event_t *evt)
                 file = NULL;
                 ESP_LOGI(TAG, "File download complete");
                 ESP_LOGI(TAG, "Size of response body: %lld bytes", response_body_size);
-                print_media_json();
             }
             break;
         case HTTP_EVENT_DISCONNECTED:
@@ -122,38 +108,52 @@ cJSON* find_metadata_for_file(const char* mp3_file_name) {
     }
     return NULL;
 }
-
 void write_metadata_to_file(FILE* file, cJSON* metadata) {
     if (metadata == NULL) return;
 
     cJSON* t = cJSON_GetObjectItem(metadata, "T");
-    if (t && cJSON_IsNumber(t)) {
-        fprintf(file, "%d\n", t->valueint);
-    }
-
-    cJSON* a = cJSON_GetObjectItem(metadata, "A");
-    if (a && cJSON_IsNumber(a)) {
-        fprintf(file, "%d\n", a->valueint);
-    }
-
-    cJSON* r = cJSON_GetObjectItem(metadata, "R");
-    if (r && cJSON_IsArray(r)) {
-        fprintf(file, "%d,%d,%d\n", cJSON_GetArrayItem(r, 0)->valueint,
-                                      cJSON_GetArrayItem(r, 1)->valueint,
-                                      cJSON_GetArrayItem(r, 2)->valueint);
-    }
-
-    cJSON* l = cJSON_GetObjectItem(metadata, "L");
-    if (l && cJSON_IsArray(l)) {
-        fprintf(file, "%d,%d,%d\n", cJSON_GetArrayItem(l, 0)->valueint,
-                                      cJSON_GetArrayItem(l, 1)->valueint,
-                                      cJSON_GetArrayItem(l, 2)->valueint);
-    }
-
     cJSON* z = cJSON_GetObjectItem(metadata, "Z");
-    if (z && cJSON_IsArray(z)) {
-        fprintf(file, "%d,%d\n", cJSON_GetArrayItem(z, 0)->valueint,
-                                   cJSON_GetArrayItem(z, 1)->valueint);
+
+    // Default values
+    int t_value = 0;
+    int z_value_1 = 0;
+    int z_value_2 = 0;
+
+    if (t && cJSON_IsNumber(t)) {
+        t_value = t->valueint;
+    }
+    if (z && cJSON_IsArray(z) && cJSON_GetArraySize(z) == 2) {
+        z_value_1 = cJSON_GetArrayItem(z, 0)->valueint;
+        z_value_2 = cJSON_GetArrayItem(z, 1)->valueint;
+    }
+
+    fprintf(file, "%d\n%d,%d\n", t_value, z_value_1, z_value_2);
+
+    if (t_value == 1) {
+        cJSON* a = cJSON_GetObjectItem(metadata, "A");
+        if (a && cJSON_IsNumber(a)) {
+            fprintf(file, "%d\n", a->valueint);
+        } else {
+            fprintf(file, "0\n");
+        }
+
+        cJSON* r = cJSON_GetObjectItem(metadata, "R");
+        if (r && cJSON_IsArray(r) && cJSON_GetArraySize(r) == 3) {
+            fprintf(file, "%d,%d,%d\n", cJSON_GetArrayItem(r, 0)->valueint,
+                                        cJSON_GetArrayItem(r, 1)->valueint,
+                                        cJSON_GetArrayItem(r, 2)->valueint);
+        } else {
+            fprintf(file, "0,0,0\n");
+        }
+
+        cJSON* l = cJSON_GetObjectItem(metadata, "L");
+        if (l && cJSON_IsArray(l) && cJSON_GetArraySize(l) == 3) {
+            fprintf(file, "%d,%d,%d\n", cJSON_GetArrayItem(l, 0)->valueint,
+                                        cJSON_GetArrayItem(l, 1)->valueint,
+                                        cJSON_GetArrayItem(l, 2)->valueint);
+        } else {
+            fprintf(file, "0,0,0\n");
+        }
     }
 }
 
@@ -186,6 +186,8 @@ static void download_file(const char *mp3_file_name)
         write_metadata_to_file(file, file_metadata);
     } else {
         ESP_LOGW(TAG, "No metadata found for file: %s", mp3_file_name);
+        // Write default metadata
+        fprintf(file, "0\n0,0\n");
     }
 
     response_body_size = 0;
@@ -227,17 +229,12 @@ static void download_file(const char *mp3_file_name)
     else
     {
         ESP_LOGE(TAG, "GET request failed: %s", esp_err_to_name(err));
-        if (file)
-        {
-            fclose(file);
-            file = NULL;
-        }
+        fclose(file);
         remove(temp_file_path);
     }
 
     esp_http_client_cleanup(client);
 }
-
 void compare_and_update_N_server(const char *path)
 {
     int file_count;
