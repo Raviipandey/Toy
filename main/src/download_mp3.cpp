@@ -32,7 +32,6 @@ static void flush_buffer() {
     }
 }
 
-
 static esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     switch (evt->event_id)
@@ -108,13 +107,13 @@ cJSON* find_metadata_for_file(const char* mp3_file_name) {
     }
     return NULL;
 }
+
 void write_metadata_to_file(FILE* file, cJSON* metadata) {
     if (metadata == NULL) return;
 
     cJSON* t = cJSON_GetObjectItem(metadata, "T");
     cJSON* z = cJSON_GetObjectItem(metadata, "Z");
 
-    // Default values
     int t_value = 0;
     int z_value_1 = 0;
     int z_value_2 = 0;
@@ -186,7 +185,6 @@ static void download_file(const char *mp3_file_name)
         write_metadata_to_file(file, file_metadata);
     } else {
         ESP_LOGW(TAG, "No metadata found for file: %s", mp3_file_name);
-        // Write default metadata
         fprintf(file, "0\n0,0\n");
     }
 
@@ -235,6 +233,7 @@ static void download_file(const char *mp3_file_name)
 
     esp_http_client_cleanup(client);
 }
+
 void compare_and_update_N_server(const char *path)
 {
     int file_count;
