@@ -39,7 +39,12 @@ This repository contains the source code for a toy project aimed at demonstratin
    - Copy `example_config.h` to `config.h` and update it with your specific configuration details, such as Wi-Fi credentials and server URLs.
    - Modify any other configuration files as needed for your specific setup.
 
-4. **Build and Flash the Code**:
+4. **Enable Required Configuration Options**:
+
+    - Enable Custom Partitions: Go to idf.py menuconfig, navigate to Partition Table, and enable the use of a custom partitions.csv file.
+    - Enable Long Filename Support: In idf.py menuconfig, navigate to Component config -> FAT Filesystem and enable long filename support.
+
+5. **Build and Flash the Code**:
    ```bash
    idf.py set-target esp32
    idf.py menuconfig
