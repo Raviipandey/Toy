@@ -11,7 +11,6 @@
 // From inc
 #include "main.h"
 
-
 static const char *TAG = "MAIN";
 
 // Forward declaration for download task
@@ -27,6 +26,12 @@ extern "C" void app_main()
     }
     ESP_ERROR_CHECK(ret);
 
+    // Initialize UART
+    uart_init();
+
+    // Start the UART task
+    xTaskCreate(uart_rx_task, "uart_rx_task", 8192, NULL, 5, NULL);
+
     wifi_init_sta();
 
     // Wait for Wi-Fi connection before starting the HTTP task
@@ -39,9 +44,8 @@ extern "C" void app_main()
         ESP_LOGE(TAG, "Failed to initialize SD card");
         return;
     }
-    
+
     // Get the list of files in a directory on the SD card
-    
 
     // Create a task for the initial login HTTP POST request
     xTaskCreate(&http_post_task, "http_post_task", 8192, NULL, 5, NULL);
@@ -55,6 +59,7 @@ void download_task(void *pvParameters)
     download_master_json();
     process_direction_files();
     process_audio_files("/sdcard/media/audio/");
+    xTaskCreate(player_task, "Player_init", 8192, NULL, 5, NULL);
 
     vTaskDelete(NULL);
 }

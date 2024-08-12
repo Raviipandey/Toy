@@ -1,6 +1,7 @@
 #include "esp_err.h"
-#include <vector>
-#include <string>
+// sdcard.cpp has them
+// #include <vector>
+// #include <string>
 
 esp_err_t init_sd_card();
 

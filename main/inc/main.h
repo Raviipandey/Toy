@@ -6,5 +6,7 @@
 #include "wifi_config.h"
 #include "wifi.h"
 #include "metadata.h"
+#include "player.h"
+#include "uart.h"
 
 using namespace std;
